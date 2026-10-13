@@ -9,6 +9,7 @@ import { TitleBar } from "./components/TitleBar";
 import { TabBar } from "./components/TabBar";
 import { Sidebar } from "./components/Sidebar";
 import { MarkdownView } from "./components/MarkdownView";
+import { useFind } from "./stores/find";
 import { EmptyState } from "./components/EmptyState";
 import { StatusBar } from "./components/StatusBar";
 import { UpdatePopup } from "./components/UpdatePopup";
@@ -278,6 +279,11 @@ export default function App() {
       } else if (key === "s") {
         e.preventDefault();
         void state.saveTab(state.activeId);
+      } else if (key === "f" || key === "h") {
+        // 查找 / 替换:只在打开了文档时生效(替换需编辑模式,由查找栏自行降级)
+        if (!state.tabs.find((t) => t.id === state.activeId)?.path) return;
+        e.preventDefault();
+        useFind.getState().openFind(key === "h");
       } else if (key === "e") {
         e.preventDefault();
         useSettings.getState().toggleEditMode();

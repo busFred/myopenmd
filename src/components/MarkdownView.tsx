@@ -43,6 +43,7 @@ import {
 import type { EditorView } from "@codemirror/view";
 import { EditorView as CMEditorView } from "@codemirror/view";
 import { extractToc, isObserverPaused, setTocNavigator, useToc } from "../stores/toc";
+import { useFind } from "../stores/find";
 import {
   allowAssets,
   importImage,
@@ -59,6 +60,8 @@ import { EmptyState } from "./EmptyState";
 import { PresentationMode } from "./PresentationMode";
 import { FloatingScrollbar } from "./FloatingScrollbar";
 import { CodeEditor } from "./CodeEditor";
+import { FindBar } from "./FindBar";
+import { createCodeFindBackend, createPreviewFindBackend, type FindBackend } from "./findBackends";
 
 const MD_EXTENSIONS = /\.(md|markdown|mdown|mkd)$/i;
 
@@ -468,6 +471,27 @@ export function MarkdownView({ tab }: { tab: Tab }) {
     });
     return () => setTocNavigator(null);
   }, [viewMode, cmView]);
+
+  // 查找/替换后端:代码视图走 CodeMirror,预览走渲染后的 DOM;编辑模式才允许替换。
+  const [findBackend, setFindBackend] = useState<FindBackend | null>(null);
+  useEffect(() => {
+    if (viewMode === "code") {
+      setFindBackend(cmView ? createCodeFindBackend(cmView, editing) : null);
+      return;
+    }
+    const article = articleRef.current;
+    const scroller = scrollRef.current;
+    setFindBackend(article && scroller ? createPreviewFindBackend(article, scroller, editing) : null);
+  }, [viewMode, cmView, editing]);
+  // 预览编辑时正文被改动:通知查找栏重算(去抖)。
+  const [previewEditTick, setPreviewEditTick] = useState(0);
+  const editTickTimer = useRef(0);
+  const onArticleInput = useCallback(() => {
+    if (!useFind.getState().open) return;
+    window.clearTimeout(editTickTimer.current);
+    editTickTimer.current = window.setTimeout(() => setPreviewEditTick((n) => n + 1), 200);
+  }, []);
+  useEffect(() => () => window.clearTimeout(editTickTimer.current), []);
 
   // 预览编辑:contentEditable 的变更 → 段落级映射回源码草稿。预览 DOM 不重渲染,
   // 光标不丢;400ms 去抖把同一块的多条变更合并成一次替换。行号在 patch 间会漂移,
@@ -1227,7 +1251,7 @@ export function MarkdownView({ tab }: { tab: Tab }) {
   const { toggleCodeMinimap, toggleCodeWrap } = useSettings.getState();
 
   return (
-    <Box flex={1} position="relative" display="flex" flexDirection="column" minW={0} minH={0}>
+    <Box className="md-view-root" flex={1} position="relative" display="flex" flexDirection="column" minW={0} minH={0}>
       {viewMode === "code" ? (
         // 代码视图:面包屑栏(目录 › 文件 › 光标所在章节)+ minimap/换行开关 + 预览/代码切换,
         // 切换按钮不再悬浮遮挡编辑器右上角与 minimap。
@@ -1375,6 +1399,7 @@ export function MarkdownView({ tab }: { tab: Tab }) {
                 contentEditable={editing || undefined}
                 suppressContentEditableWarning
                 onMouseOver={onArticleMouseOver}
+                onInput={onArticleInput}
                 style={{
                   // 内容宽度只由左右边距决定:边距 0 = 铺满,调大即收窄阅读栏,连续无跳变。
                   maxWidth: "100%",
@@ -1390,6 +1415,11 @@ export function MarkdownView({ tab }: { tab: Tab }) {
           )}
         </Box>
         <FloatingScrollbar targetRef={scrollRef} />
+        <FindBar
+          backend={findBackend}
+          version={viewMode === "code" ? codeSource : `${html}\u0000${previewEditTick}`}
+          top={viewMode === "code" ? 8 : 44}
+        />
       </Box>
       {presenting && tab.path && (
         <PresentationMode

@@ -1,6 +1,8 @@
 import { useEffect, useRef } from "react";
-import { Annotation, Compartment, EditorState, Transaction, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, StateEffect, StateField, Transaction, type Extension } from "@codemirror/state";
 import {
+  Decoration,
+  type DecorationSet,
   EditorView,
   crosshairCursor,
   drawSelection,
@@ -34,6 +36,33 @@ import { useEditorStatus } from "../stores/editorStatus";
 const External = Annotation.define<boolean>();
 
 const MONO = `"Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "SF Mono", Menlo, "Droid Sans Mono", "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", monospace`;
+
+// ---------------------------------------------------------------------------
+// 查找高亮:匹配集合由 MarkdownView 的查找后端算出后经 effect 写入。
+// ---------------------------------------------------------------------------
+export interface FindDecoState {
+  matches: { from: number; to: number }[];
+  current: number;
+}
+export const setFindMatches = StateEffect.define<FindDecoState>();
+const findMatchMark = Decoration.mark({ class: "cm-find-match" });
+const findCurrentMark = Decoration.mark({ class: "cm-find-match cm-find-current" });
+const findField = StateField.define<DecorationSet>({
+  create: () => Decoration.none,
+  update(deco, tr) {
+    deco = deco.map(tr.changes);
+    for (const e of tr.effects) {
+      if (e.is(setFindMatches)) {
+        const { matches, current } = e.value;
+        deco = Decoration.set(
+          matches.map((m, i) => (i === current ? findCurrentMark : findMatchMark).range(m.from, m.to)),
+        );
+      }
+    }
+    return deco;
+  },
+  provide: (f) => EditorView.decorations.from(f),
+});
 
 // ---------------------------------------------------------------------------
 // Markdown 语法:YAML frontmatter 整块着色;列表/任务标记、围栏代码文本单独打标签。
@@ -73,7 +102,8 @@ interface Palette {
   /** 编辑器外观 */
   ui: {
     fg: string; gutter: string; gutterActive: string; active: string; activeBorder: string; sel: string;
-    selBlur: string; caret: string; bracket: string; bracketBorder: string; fold: string; minimapBorder: string; minimapOverlay: string; guide: string; guideActive: string;
+    selBlur: string; caret: string; bracket: string; bracketBorder: string; find: string; findCur: string;
+    findCurFg: string; fold: string; minimapBorder: string; minimapOverlay: string; guide: string; guideActive: string;
   };
   /** 语法高亮 */
   syn: {
@@ -92,7 +122,8 @@ const PALETTES: Record<ThemeVariant, Palette> = {
     ui: {
       fg: "#d4d4d8", gutter: "#52525b", gutterActive: "#e4e4e7", active: "rgba(255,255,255,0.04)",
       activeBorder: "rgba(255,255,255,0.05)", sel: "#264f78", selBlur: "rgba(38,79,120,0.6)", caret: "#e4e4e7",
-      bracket: "rgba(88,166,255,0.14)", bracketBorder: "#71717a", fold: "#27272a", minimapBorder: "#1c1c1f", minimapOverlay: "rgba(255,255,255,0.12)",
+      bracket: "rgba(88,166,255,0.14)", bracketBorder: "#71717a", find: "rgba(187,128,9,0.42)", findCur: "#f97316",
+      findCurFg: "#111", fold: "#27272a", minimapBorder: "#1c1c1f", minimapOverlay: "rgba(255,255,255,0.12)",
       guide: "#27272a", guideActive: "#52525b",
     },
     syn: {
@@ -106,7 +137,8 @@ const PALETTES: Record<ThemeVariant, Palette> = {
     ui: {
       fg: "#1f2328", gutter: "#a1a1aa", gutterActive: "#18181b", active: "rgba(0,0,0,0.035)",
       activeBorder: "rgba(0,0,0,0.04)", sel: "#add6ff", selBlur: "#d9e8f8", caret: "#09090b",
-      bracket: "rgba(9,105,218,0.10)", bracketBorder: "#a1a1aa", fold: "#e4e4e7", minimapBorder: "#f0f0f2", minimapOverlay: "rgba(0,0,0,0.10)",
+      bracket: "rgba(9,105,218,0.10)", bracketBorder: "#a1a1aa", find: "rgba(250,204,21,0.38)", findCur: "#f97316",
+      findCurFg: "#fff", fold: "#e4e4e7", minimapBorder: "#f0f0f2", minimapOverlay: "rgba(0,0,0,0.10)",
       guide: "#e4e4e7", guideActive: "#a1a1aa",
     },
     syn: {
@@ -175,6 +207,9 @@ function editorTheme(variant: ThemeVariant, fontSize: number): Extension {
       ".cm-foldGutter .cm-gutterElement": { padding: "0 4px", opacity: "0", transition: "opacity .15s", cursor: "pointer" },
       ".cm-gutters:hover .cm-foldGutter .cm-gutterElement": { opacity: "1" },
       ".cm-foldPlaceholder": { backgroundColor: c.fold, border: "none", color: c.gutter, padding: "0 6px", margin: "0 4px" },
+      ".cm-find-match": { backgroundColor: c.find, borderRadius: "2px" },
+      ".cm-find-current": { backgroundColor: c.findCur, color: c.findCurFg, borderRadius: "2px" },
+      ".cm-find-current *": { color: `${c.findCurFg} !important` },
       ".cm-minimap-gutter": { borderLeft: `1px solid ${c.minimapBorder}` },
       ".cm-minimap-overlay-container .cm-minimap-overlay": { backgroundColor: c.minimapOverlay },
     },
@@ -299,6 +334,7 @@ export function CodeEditor(props: CodeEditorProps) {
         c.guides.of(guidesExt(variantOf(p.isDark))),
         markdown({ base: markdownLanguage, codeLanguages: languages, extensions: [frontmatter, markTags] }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
+        findField,
         c.theme.of(editorTheme(variantOf(p.isDark), p.fontSize)),
         c.highlight.of(syntaxHighlighting(highlightStyle(variantOf(p.isDark)))),
         c.readOnly.of(EditorState.readOnly.of(!p.editable)),
