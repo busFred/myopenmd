@@ -41,6 +41,10 @@ interface SettingsState {
   /** 关闭窗口行为(勾选"不再提醒"后由关闭对话框写入)。 */
   closeAction: CloseAction;
   language: Language;
+  /** 代码视图右侧 minimap。 */
+  codeMinimap: boolean;
+  /** 代码视图长行自动换行。 */
+  codeWrap: boolean;
   setFontSize: (n: number) => void;
   toggleToc: () => void;
   setSidebarTab: (v: SidebarTab) => void;
@@ -51,6 +55,8 @@ interface SettingsState {
   toggleEditMode: () => void;
   setCloseAction: (v: CloseAction) => void;
   setLanguage: (l: Language) => void;
+  toggleCodeMinimap: () => void;
+  toggleCodeWrap: () => void;
 }
 
 export const useSettings = create<SettingsState>()(
@@ -66,6 +72,8 @@ export const useSettings = create<SettingsState>()(
       editMode: false,
       closeAction: "ask",
       language: "auto",
+      codeMinimap: true,
+      codeWrap: true,
       // 字号滑动过渡在 MarkdownView 的 font-size transition 中实现。
       setFontSize: (n) => set({ fontSize: Math.min(28, Math.max(13, n)) }),
       toggleToc: () => set((s) => ({ tocOpen: !s.tocOpen })),
@@ -81,6 +89,8 @@ export const useSettings = create<SettingsState>()(
       toggleEditMode: () => set((s) => ({ editMode: !s.editMode })),
       setCloseAction: (v) => set({ closeAction: v }),
       setLanguage: (l) => set({ language: l }),
+      toggleCodeMinimap: () => set((s) => ({ codeMinimap: !s.codeMinimap })),
+      toggleCodeWrap: () => set((s) => ({ codeWrap: !s.codeWrap })),
     }),
     { name: "openmd-settings" },
   ),

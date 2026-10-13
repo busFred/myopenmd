@@ -42,5 +42,7 @@
   "shell.author": "Author: 木流",
   "shell.noHeadings": "No headings",
   "shell.editModeOn": "Edit mode on",
-  "shell.editModeOff": "Edit mode off"
+  "shell.editModeOff": "Edit mode off",
+  "shell.lnCol": "Ln {{line}}, Col {{col}}",
+  "shell.selected": "({{count}} selected)"
 }

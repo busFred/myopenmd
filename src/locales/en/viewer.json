@@ -30,5 +30,7 @@
   "viewer.menu.alignRight": "Right",
   "viewer.menu.alignDefault": "Default",
   "viewer.menu.replaceImage": "Replace image…",
-  "viewer.menu.size": "Size"
+  "viewer.menu.size": "Size",
+  "viewer.toolbar.minimap": "Toggle minimap",
+  "viewer.toolbar.wordWrap": "Toggle word wrap"
 }

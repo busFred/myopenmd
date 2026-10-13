@@ -4,7 +4,7 @@ import { createSystem, defaultConfig, defineConfig } from "@chakra-ui/react";
 const APP_FONTS =
   '"MiSans", "MiSans VF", -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Microsoft YaHei", sans-serif';
 const MONO_FONTS =
-  '"Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace';
+  '"Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "SF Mono", Menlo, "Droid Sans Mono", "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", monospace';
 
 const config = defineConfig({
   globalCss: {

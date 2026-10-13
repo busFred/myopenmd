@@ -3,12 +3,16 @@ import { HStack, Text } from "@chakra-ui/react";
 import { isDirty, useTabs } from "../stores/tabs";
 import { useToc } from "../stores/toc";
 import { IS_STORE_BUILD } from "../lib/build-flags";
+import { useSettings } from "../stores/settings";
+import { useEditorStatus } from "../stores/editorStatus";
 
 export function StatusBar() {
   const { t } = useTranslation();
   const tabs = useTabs((s) => s.tabs);
   const activeId = useTabs((s) => s.activeId);
   const entries = useToc((s) => s.entries);
+  const viewMode = useSettings((s) => s.viewMode);
+  const cursor = useEditorStatus();
   const tab = tabs.find((t) => t.id === activeId);
 
   if (!tab) return null;
@@ -44,9 +48,20 @@ export function StatusBar() {
           <Text>{t("shell.headingCount", { count: entries.length })}</Text>
         </>
       )}
+      {/* 代码视图:光标行列、换行符、语言 */}
+      {tab.path && !tab.error && viewMode === "code" && (
+        <HStack ms="auto" gap={3}>
+          <Text>
+            {t("shell.lnCol", { line: cursor.line, col: cursor.col })}
+            {cursor.selected > 0 && ` ${t("shell.selected", { count: cursor.selected })}`}
+          </Text>
+          <Text>{cursor.eol}</Text>
+          <Text>Markdown</Text>
+        </HStack>
+      )}
       {/* 商店版不展示作者文案;出错提示保留 */}
       {(!IS_STORE_BUILD || tab.error) && (
-        <Text ms="auto" color="fg.subtle">
+        <Text ms={viewMode === "code" && tab.path && !tab.error ? undefined : "auto"} color="fg.subtle">
           {tab.error ? t("shell.openFailed") : t("shell.author")}
         </Text>
       )}

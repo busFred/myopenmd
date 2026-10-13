@@ -30,5 +30,7 @@
   "viewer.menu.alignRight": "靠右",
   "viewer.menu.alignDefault": "預設",
   "viewer.menu.replaceImage": "取代圖片…",
-  "viewer.menu.size": "大小"
+  "viewer.menu.size": "大小",
+  "viewer.toolbar.minimap": "切換縮圖",
+  "viewer.toolbar.wordWrap": "切換自動換行"
 }

@@ -30,5 +30,7 @@
   "viewer.menu.alignRight": "右",
   "viewer.menu.alignDefault": "默认",
   "viewer.menu.replaceImage": "替换图片…",
-  "viewer.menu.size": "大小"
+  "viewer.menu.size": "大小",
+  "viewer.toolbar.minimap": "切换缩略图",
+  "viewer.toolbar.wordWrap": "切换自动换行"
 }

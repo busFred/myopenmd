@@ -1,18 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { Alert, Box, Button, Flex, SegmentGroup } from "@chakra-ui/react";
+import { Alert, Box, Button, Flex, IconButton, SegmentGroup, Text } from "@chakra-ui/react";
 import {
+  ChevronRight,
   Code2,
   ClipboardPaste,
   Copy,
   Eye,
   ExternalLink,
+  FileText,
   Image as ImageIcon,
   ImagePlus,
   Link2,
+  Map as MapIcon,
   Play,
   Redo2,
   Replace,
   Scissors,
+  TextWrap,
   Undo2,
 } from "lucide-react";
 import i18n from "i18next";
@@ -36,8 +40,9 @@ import {
   readClipboardText,
   selectionText,
 } from "../renderer/clipboard";
-import hljs from "../renderer/hljs";
-import { extractToc, isObserverPaused, useToc } from "../stores/toc";
+import type { EditorView } from "@codemirror/view";
+import { EditorView as CMEditorView } from "@codemirror/view";
+import { extractToc, isObserverPaused, setTocNavigator, useToc } from "../stores/toc";
 import {
   allowAssets,
   importImage,
@@ -53,6 +58,7 @@ import { ContextMenu, type MenuEntry } from "./ContextMenu";
 import { EmptyState } from "./EmptyState";
 import { PresentationMode } from "./PresentationMode";
 import { FloatingScrollbar } from "./FloatingScrollbar";
+import { CodeEditor } from "./CodeEditor";
 
 const MD_EXTENSIONS = /\.(md|markdown|mdown|mkd)$/i;
 
@@ -217,49 +223,9 @@ function extractHeadingsFromSource(content: string): SourceHeading[] {
   return out;
 }
 
-/** hljs 输出的高亮 HTML 按行切分:遇到换行先补全闭合标签,下一行重新打开,
- *  保证每一行都是自包含的合法 HTML(便于按行包裹 span 注入锚点)。 */
-function splitHighlightedLines(html: string): string[] {
-  const lines: string[] = [];
-  const openTags: string[] = [];
-  let cur = "";
-  let i = 0;
-  while (i < html.length) {
-    const ch = html[i];
-    if (ch === "<") {
-      const close = html.indexOf(">", i);
-      if (close === -1) {
-        cur += html.slice(i);
-        break;
-      }
-      const tag = html.slice(i, close + 1);
-      if (/^<span[^>]*>$/.test(tag)) openTags.push(tag);
-      else if (tag === "</span>") openTags.pop();
-      cur += tag;
-      i = close + 1;
-      continue;
-    }
-    if (ch === "\n") {
-      lines.push(cur + "</span>".repeat(openTags.length));
-      cur = openTags.join("");
-      i += 1;
-      continue;
-    }
-    const next = html.slice(i).search(/[<\n]/);
-    if (next === -1) {
-      cur += html.slice(i);
-      break;
-    }
-    cur += html.slice(i, i + next);
-    i += next;
-  }
-  lines.push(cur + "</span>".repeat(openTags.length));
-  return lines;
-}
-
 export function MarkdownView({ tab }: { tab: Tab }) {
   const { t } = useTranslation();
-  const { fontSize, contentPadding, viewMode, setViewMode, editMode } = useSettings();
+  const { fontSize, contentPadding, viewMode, setViewMode, editMode, codeMinimap, codeWrap } = useSettings();
   const { resolvedTheme } = useTheme();
   const isDark = resolvedTheme !== "light";
   const { setEntries, setActive } = useToc();
@@ -313,35 +279,42 @@ export function MarkdownView({ tab }: { tab: Tab }) {
     }
   }, [previewSource, tab.error, tab.path, baseDir]);
 
-  // 代码视图:编辑时高亮层跟随 draft 实时刷新(输入 → store → 重高亮)。
+  // 代码视图:目录与面包屑用的源码标题,跟随 draft 实时刷新。
   const codeSource = tab.draft ?? tab.content;
-  const { codeHtml, sourceHeadings } = useMemo(() => {
-    if (viewMode !== "code" || tab.error || !tab.path) {
-      return { codeHtml: "", sourceHeadings: [] as SourceHeading[] };
+  const sourceHeadings = useMemo(
+    () => (viewMode !== "code" || tab.error || !tab.path ? [] : extractHeadingsFromSource(codeSource)),
+    [codeSource, tab.path, tab.error, viewMode],
+  );
+  const [cmView, setCmView] = useState<EditorView | null>(null);
+  const editorViewRef = useRef<EditorView | null>(null);
+  editorViewRef.current = cmView;
+  const [cursorLine, setCursorLine] = useState(0);
+  const headingsRef = useRef(sourceHeadings);
+  headingsRef.current = sourceHeadings;
+  /** 视口顶部行 → 目录高亮(代码视图只渲染可见行,不能用 IntersectionObserver)。 */
+  const onCodeTopLine = useCallback(
+    (line: number) => {
+      if (isObserverPaused()) return;
+      let active: SourceHeading | undefined;
+      for (const h of headingsRef.current) {
+        if (h.line > line) break;
+        active = h;
+      }
+      setActive(active ? `mdc-h${active.line}` : (headingsRef.current[0] ? `mdc-h${headingsRef.current[0].line}` : null));
+    },
+    [setActive],
+  );
+  const cursorHeading = useMemo(() => {
+    let active: SourceHeading | undefined;
+    for (const h of sourceHeadings) {
+      if (h.line > cursorLine) break;
+      active = h;
     }
-    const headings = extractHeadingsFromSource(codeSource);
-    let highlighted: string;
-    try {
-      highlighted = hljs.highlight(codeSource, { language: "markdown" }).value;
-    } catch (e) {
-      console.error("highlight failed:", e);
-      return { codeHtml: "", sourceHeadings: headings };
-    }
-    const idByLine = new Map(headings.map((h) => [h.line, `mdc-h${h.line}`]));
-    const codeHtml = splitHighlightedLines(highlighted)
-      .map((l, i) => {
-        const id = idByLine.get(i);
-        return id
-          ? `<span id="${id}" class="md-src-heading">${l}</span>`
-          : `<span>${l}</span>`;
-      })
-      .join("\n");
-    return { codeHtml, sourceHeadings: headings };
-  }, [codeSource, tab.path, tab.error, viewMode]);
+    return active;
+  }, [sourceHeadings, cursorLine]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement | null>(null);
-  const codePreRef = useRef<HTMLPreElement | null>(null);
   const lastTabIdRef = useRef(tab.id);
   const scrollRaf = useRef(0);
   // 滚动同步限流:scrollY 只低频写入 store(高频率会整树重渲染,滚动掉帧)。
@@ -352,27 +325,10 @@ export function MarkdownView({ tab }: { tab: Tab }) {
   // 代码视图:目录从原始源码解析,滚动跟随观察代码里的标题行 span。
   useEffect(() => {
     if (viewMode === "code") {
-      const pre = codePreRef.current;
-      if (!pre || !tab.path) return;
+      if (!tab.path) return;
       setEntries(sourceHeadings.map((h) => ({ id: `mdc-h${h.line}`, text: h.text, level: h.level })));
-      const observer = new IntersectionObserver(
-        (entriesObs) => {
-          if (isObserverPaused()) return;
-          for (const entry of entriesObs) {
-            if (entry.isIntersecting) {
-              setActive(entry.target.id);
-              break;
-            }
-          }
-        },
-        { rootMargin: "-80px 0px -70% 0px", threshold: 0 },
-      );
-      pre.querySelectorAll("span.md-src-heading").forEach((h) => observer.observe(h));
       // 卸载(切走/回首页)时清空目录;重挂载会立即重新提取
-      return () => {
-        observer.disconnect();
-        setEntries([]);
-      };
+      return () => setEntries([]);
     }
     const article = articleRef.current;
     if (!article || !tab.path) return;
@@ -493,7 +449,25 @@ export function MarkdownView({ tab }: { tab: Tab }) {
       // 卸载(切走/回首页)时清空目录;重挂载会立即重新提取
       setEntries([]);
     };
-  }, [viewMode, html, codeHtml, sourceHeadings, tab.path, editMode, isDark, assetPaths, setEntries, setActive]);
+  }, [viewMode, html, sourceHeadings, tab.path, editMode, isDark, assetPaths, setEntries, setActive]);
+
+  // 代码视图:目录点击由编辑器滚动到对应行并放置光标。
+  useEffect(() => {
+    if (viewMode !== "code" || !cmView) return;
+    setTocNavigator((id) => {
+      const m = /^mdc-h(\d+)$/.exec(id);
+      if (!m) return false;
+      const doc = cmView.state.doc;
+      const pos = doc.line(Math.min(Number(m[1]) + 1, doc.lines)).from;
+      cmView.dispatch({
+        selection: { anchor: pos },
+        effects: CMEditorView.scrollIntoView(pos, { y: "start", yMargin: 16 }),
+      });
+      cmView.focus();
+      return true;
+    });
+    return () => setTocNavigator(null);
+  }, [viewMode, cmView]);
 
   // 预览编辑:contentEditable 的变更 → 段落级映射回源码草稿。预览 DOM 不重渲染,
   // 光标不丢;400ms 去抖把同一块的多条变更合并成一次替换。行号在 patch 间会漂移,
@@ -697,7 +671,6 @@ export function MarkdownView({ tab }: { tab: Tab }) {
     w: number;
     h: number;
   } | null>(null);
-  const codeTextareaRef = useRef<HTMLTextAreaElement | null>(null);
 
   const escapeAttr = (v: string) => v.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
 
@@ -769,33 +742,32 @@ export function MarkdownView({ tab }: { tab: Tab }) {
     [pushImageOp],
   );
 
-  // 代码视图 textarea 的剪贴板操作(setRangeText;粘贴来自插件读取)。
-  const textareaCopy = useCallback(
-    (op: "copy" | "cut") => {
-      const ta = codeTextareaRef.current;
-      if (!ta) return;
-      ta.focus(); // 菜单点击让 textarea 失焦,先还原焦点再取选区。
-      const text = codeSource.slice(ta.selectionStart, ta.selectionEnd);
-      if (!text) return;
-      void navigator.clipboard.writeText(text).catch(() => {});
-      if (op === "cut") {
-        updateDraft(tab.id, codeSource.slice(0, ta.selectionStart) + codeSource.slice(ta.selectionEnd));
-      }
-    },
-    [codeSource, tab.id, updateDraft],
-  );
-  const textareaPaste = useCallback(async () => {
-    const ta = codeTextareaRef.current;
-    if (!ta) return;
+  // 代码视图的剪贴板操作:作用于编辑器选区(只渲染可见行,不能依赖 DOM 选区)。
+  const editorCopy = useCallback((op: "copy" | "cut") => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    const { from, to } = view.state.selection.main;
+    if (from === to) return;
+    void navigator.clipboard.writeText(view.state.sliceDoc(from, to)).catch(() => {});
+    if (op === "cut" && !view.state.readOnly) {
+      view.dispatch({ changes: { from, to }, userEvent: "delete.cut" });
+    }
+    view.focus();
+  }, []);
+  const editorPaste = useCallback(async () => {
+    const view = editorViewRef.current;
+    if (!view || view.state.readOnly) return;
     const text = await readClipboardText();
     if (!text) return;
-    const start = ta.selectionStart;
-    updateDraft(tab.id, codeSource.slice(0, start) + text + codeSource.slice(ta.selectionEnd));
-    requestAnimationFrame(() => {
-      ta.focus();
-      ta.selectionStart = ta.selectionEnd = start + text.length;
-    });
-  }, [codeSource, tab.id, updateDraft]);
+    view.dispatch(view.state.replaceSelection(text), { userEvent: "input.paste", scrollIntoView: true });
+    view.focus();
+  }, []);
+  const editorSelectAll = useCallback(() => {
+    const view = editorViewRef.current;
+    if (!view) return;
+    view.dispatch({ selection: { anchor: 0, head: view.state.doc.length } });
+    view.focus();
+  }, []);
 
   // 菜单打开时的选区快照:点进输入框/菜单会丢失正文选区,依赖选区的操作
   // (字号/布局/加粗/剪切/复制)先从这里恢复。Range 是活对象,会随编辑自动调整。
@@ -904,6 +876,21 @@ export function MarkdownView({ tab }: { tab: Tab }) {
       const link = target.closest("a");
       const sel = selectionText();
 
+      if (viewMode === "code") {
+        const view = editorViewRef.current;
+        const hasSel = !!view && !view.state.selection.main.empty;
+        const copy: MenuEntry = { type: "item", label: t("viewer.menu.copy"), icon: <Copy size={14} />, disabled: !hasSel, onClick: () => editorCopy("copy") };
+        const selectAll: MenuEntry = { type: "item", label: t("viewer.menu.selectAll"), onClick: editorSelectAll };
+        if (!editing) return [copy, { type: "sep" }, selectAll];
+        return [
+          { type: "item", label: t("viewer.menu.cut"), icon: <Scissors size={14} />, disabled: !hasSel, onClick: () => editorCopy("cut") },
+          copy,
+          { type: "item", label: t("viewer.menu.paste"), icon: <ClipboardPaste size={14} />, onClick: () => void editorPaste() },
+          { type: "sep" },
+          selectAll,
+        ];
+      }
+
       if (!editing) {
         const entries: MenuEntry[] = [
           {
@@ -956,25 +943,6 @@ export function MarkdownView({ tab }: { tab: Tab }) {
           },
         );
         return entries;
-      }
-
-      if (viewMode === "code") {
-        const ta = codeTextareaRef.current;
-        const hasSel = !!ta && ta.selectionStart < ta.selectionEnd;
-        return [
-          { type: "item", label: t("viewer.menu.cut"), icon: <Scissors size={14} />, disabled: !hasSel, onClick: () => textareaCopy("cut") },
-          { type: "item", label: t("viewer.menu.copy"), icon: <Copy size={14} />, disabled: !hasSel, onClick: () => textareaCopy("copy") },
-          { type: "item", label: t("viewer.menu.paste"), icon: <ClipboardPaste size={14} />, onClick: () => void textareaPaste() },
-          { type: "sep" },
-          {
-            type: "item",
-            label: t("viewer.menu.selectAll"),
-            onClick: () => {
-              ta?.focus();
-              ta?.select();
-            },
-          },
-        ];
       }
 
       // 编辑开 + 预览
@@ -1087,7 +1055,7 @@ export function MarkdownView({ tab }: { tab: Tab }) {
       return entries;
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 菜单条目依赖众多动作回调,均为稳定 useCallback
-    [editing, viewMode, menuUndo, menuRedo, insertImageAtCaret, replaceImage, resizeImage, textareaCopy, textareaPaste, applySelectionFontSize, alignSelectedBlocks, restoreMenuSelection],
+    [editing, viewMode, menuUndo, menuRedo, insertImageAtCaret, replaceImage, resizeImage, editorCopy, editorPaste, editorSelectAll, applySelectionFontSize, alignSelectedBlocks, restoreMenuSelection],
   );
 
   const pasteIntoPreview = useCallback(async () => {
@@ -1228,65 +1196,138 @@ export function MarkdownView({ tab }: { tab: Tab }) {
     });
   };
 
+  const viewSwitch = (
+    <SegmentGroup.Root
+      size="xs"
+      value={viewMode}
+      onValueChange={(e) => {
+        const next = e.value as ViewMode;
+        withViewTransition(() => setViewMode(next));
+      }}
+      aria-label={t("viewer.toolbar.switchView")}
+    >
+      <SegmentGroup.Indicator />
+      <SegmentGroup.Item value="preview">
+        <SegmentGroup.ItemHiddenInput />
+        <SegmentGroup.ItemText display="inline-flex" alignItems="center" gap={1.5}>
+          <Eye size={13} />
+          {t("viewer.toolbar.preview")}
+        </SegmentGroup.ItemText>
+      </SegmentGroup.Item>
+      <SegmentGroup.Item value="code">
+        <SegmentGroup.ItemHiddenInput />
+        <SegmentGroup.ItemText display="inline-flex" alignItems="center" gap={1.5}>
+          <Code2 size={13} />
+          {t("viewer.toolbar.code")}
+        </SegmentGroup.ItemText>
+      </SegmentGroup.Item>
+    </SegmentGroup.Root>
+  );
+  const dirName = baseDir ? baseDir.split(/[\\/]/).filter(Boolean).pop() : undefined;
+  const { toggleCodeMinimap, toggleCodeWrap } = useSettings.getState();
+
   return (
     <Box flex={1} position="relative" display="flex" flexDirection="column" minW={0} minH={0}>
-      {/* 「预览/代码」悬浮在内容区右上角,不单独占一行(编辑/保存已移入顶栏)。 */}
-      <Box
-        position="absolute"
-        top="8px"
-        right="16px"
-        zIndex={40}
-        borderRadius="8px"
-        borderWidth="1px"
-        borderColor="border.subtle"
-        bg="bg.panel"
-        boxShadow="sm"
-        backdropFilter="blur(8px)"
-        display="flex"
-        alignItems="center"
-        p="2px"
-      >
-        <SegmentGroup.Root
-          size="xs"
-          value={viewMode}
-          onValueChange={(e) => {
-            const next = e.value as ViewMode;
-            withViewTransition(() => setViewMode(next));
-          }}
-          aria-label={t("viewer.toolbar.switchView")}
+      {viewMode === "code" ? (
+        // 代码视图:面包屑栏(目录 › 文件 › 光标所在章节)+ minimap/换行开关 + 预览/代码切换,
+        // 切换按钮不再悬浮遮挡编辑器右上角与 minimap。
+        <Flex
+          className="md-code-crumbs"
+          h="36px"
+          flexShrink={0}
+          alignItems="center"
+          gap={1.5}
+          ps={4}
+          pe="16px"
+          fontSize="xs"
+          color="fg.muted"
+          borderBottomWidth="1px"
+          borderColor="border.subtle"
+          whiteSpace="nowrap"
+          minW={0}
         >
-          <SegmentGroup.Indicator />
-          <SegmentGroup.Item value="preview">
-            <SegmentGroup.ItemHiddenInput />
-            <SegmentGroup.ItemText display="inline-flex" alignItems="center" gap={1.5}>
-              <Eye size={13} />
-              {t("viewer.toolbar.preview")}
-            </SegmentGroup.ItemText>
-          </SegmentGroup.Item>
-          <SegmentGroup.Item value="code">
-            <SegmentGroup.ItemHiddenInput />
-            <SegmentGroup.ItemText display="inline-flex" alignItems="center" gap={1.5}>
-              <Code2 size={13} />
-              {t("viewer.toolbar.code")}
-            </SegmentGroup.ItemText>
-          </SegmentGroup.Item>
-        </SegmentGroup.Root>
-        {isMarp && viewMode === "preview" && (
-          <Button
-            aria-label={t("viewer.toolbar.present")}
-            title={t("viewer.toolbar.present")}
-            size="xs"
-            variant="ghost"
-            gap={1}
-            px={2}
-            ms={1}
-            onClick={() => setPresenting(true)}
-          >
-            <Play size={13} />
-            {t("viewer.toolbar.present")}
-          </Button>
-        )}
-      </Box>
+          <FileText size={13} style={{ flexShrink: 0 }} />
+          {dirName && (
+            <>
+              <Text truncate>{dirName}</Text>
+              <ChevronRight size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+            </>
+          )}
+          <Text color="fg" truncate flexShrink={0} maxW="40%">
+            {tab.name}
+          </Text>
+          {cursorHeading && (
+            <>
+              <ChevronRight size={12} style={{ opacity: 0.5, flexShrink: 0 }} />
+              <Text truncate>
+                <Box as="span" className="md-code-crumb-hash">
+                  {"#".repeat(cursorHeading.level)}
+                </Box>{" "}
+                {cursorHeading.text}
+              </Text>
+            </>
+          )}
+          <Flex ms="auto" alignItems="center" gap={1} flexShrink={0} ps={2}>
+            <IconButton
+              size="xs"
+              variant={codeWrap ? "subtle" : "ghost"}
+              aria-pressed={codeWrap}
+              aria-label={t("viewer.toolbar.wordWrap")}
+              title={t("viewer.toolbar.wordWrap")}
+              onClick={toggleCodeWrap}
+            >
+              <TextWrap size={14} />
+            </IconButton>
+            <IconButton
+              size="xs"
+              variant={codeMinimap ? "subtle" : "ghost"}
+              aria-pressed={codeMinimap}
+              aria-label={t("viewer.toolbar.minimap")}
+              title={t("viewer.toolbar.minimap")}
+              onClick={toggleCodeMinimap}
+            >
+              <MapIcon size={14} />
+            </IconButton>
+            <Box borderRadius="8px" borderWidth="1px" borderColor="border.subtle" bg="bg.panel" p="2px" ms={1}>
+              {viewSwitch}
+            </Box>
+          </Flex>
+        </Flex>
+      ) : (
+        // 预览:「预览/代码」悬浮在内容区右上角,不单独占一行(编辑/保存已移入顶栏)。
+        <Box
+          position="absolute"
+          top="8px"
+          right="16px"
+          zIndex={40}
+          borderRadius="8px"
+          borderWidth="1px"
+          borderColor="border.subtle"
+          bg="bg.panel"
+          boxShadow="sm"
+          backdropFilter="blur(8px)"
+          display="flex"
+          alignItems="center"
+          p="2px"
+        >
+          {viewSwitch}
+          {isMarp && (
+            <Button
+              aria-label={t("viewer.toolbar.present")}
+              title={t("viewer.toolbar.present")}
+              size="xs"
+              variant="ghost"
+              gap={1}
+              px={2}
+              ms={1}
+              onClick={() => setPresenting(true)}
+            >
+              <Play size={13} />
+              {t("viewer.toolbar.present")}
+            </Button>
+          )}
+        </Box>
+      )}
       <Box flex={1} position="relative" display="flex" minW={0} minH={0}>
         <Box
           ref={scrollRef}
@@ -1294,29 +1335,24 @@ export function MarkdownView({ tab }: { tab: Tab }) {
           flex={1}
           minW={0}
           minH={0}
-          overflowY="auto"
+          overflowY={viewMode === "code" ? "hidden" : "auto"}
           onScroll={handleScroll}
           onContextMenu={onContentContextMenu}
         >
           {viewMode === "code" ? (
-            // 挂 md-body 类以复用 .md-body .hljs-* 亮/暗 token 配色。
-            <div className="md-body md-code-view">
-              {/* 高亮层与透明 textarea 网格叠放,编辑时视觉不变、光标可输入。 */}
-              <div className="md-code-editor">
-                <pre ref={codePreRef} className="md-code-pre" aria-hidden={editing || undefined}>
-                  <code dangerouslySetInnerHTML={{ __html: codeHtml }} />
-                </pre>
-                {editing && (
-                  <textarea
-                    ref={codeTextareaRef}
-                    className="md-code-textarea"
-                    value={codeSource}
-                    spellCheck={false}
-                    onChange={(e) => updateDraft(tab.id, e.target.value)}
-                  />
-                )}
-              </div>
-            </div>
+            <CodeEditor
+              docKey={tab.id}
+              value={codeSource}
+              editable={editing}
+              isDark={isDark}
+              fontSize={Math.round(fontSize * 0.8 * 2) / 2}
+              minimap={codeMinimap}
+              wrap={codeWrap}
+              onChange={(v) => updateDraft(tab.id, v)}
+              onReady={setCmView}
+              onCursorLine={setCursorLine}
+              onTopLine={onCodeTopLine}
+            />
           ) : (
             <>
               {frontmatter && Object.keys(frontmatter).length > 0 && (

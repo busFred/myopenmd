@@ -42,5 +42,7 @@
   "shell.author": "作者：木流",
   "shell.noHeadings": "无标题",
   "shell.editModeOn": "已进入编辑模式",
-  "shell.editModeOff": "已退出编辑模式"
+  "shell.editModeOff": "已退出编辑模式",
+  "shell.lnCol": "行 {{line}},列 {{col}}",
+  "shell.selected": "(已选择 {{count}})"
 }

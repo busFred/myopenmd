@@ -153,7 +153,7 @@
 
 /* ---------- 代码 ---------- */
 .md-body code {
-  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
+  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "SF Mono", Menlo, "Droid Sans Mono", "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", monospace;
   font-size: 0.86em;
 }
 .md-body :not(pre) > code {
@@ -859,71 +859,33 @@
 }
 
 /* =========================================================
-   代码视图(原始 Markdown 源码,配合 TitleBar 预览/代码切换)
-   容器同时挂 .md-body 以复用 .md-body .hljs-* 亮/暗配色。
+   代码视图:CodeMirror 6 编辑器(配色与主题在 CodeEditor.tsx)。
    ========================================================= */
-.md-code-view {
-  max-width: 100%;
-  margin: 0 auto;
-  padding: 24px 32px 64px;
+.md-cm-host {
+  height: 100%;
 }
-.md-code-view .md-code-pre {
-  margin: 0;
-  padding: 20px 24px;
-  border-radius: 10px;
-  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
-  font-size: 13.5px;
-  line-height: 1.65;
-  white-space: pre-wrap;   /* 长行折行,避免横向滚动 */
-  word-break: break-word;
-  overflow-x: visible;
+.md-cm-host .cm-scroller::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
 }
-.md-code-view .md-code-pre code {
-  font-size: inherit;      /* 覆盖 .md-body pre code 的 0.82em */
-  font-family: inherit;
-  white-space: inherit;
-  background: none;
-  padding: 0;
-  border: 0;
+.md-cm-host .cm-scroller::-webkit-scrollbar-thumb {
+  background: rgba(127, 127, 127, 0.28);
+  border: 3px solid transparent;
+  background-clip: content-box;
+  border-radius: 8px;
 }
-/* 代码视图标题行:目录点击 scrollIntoView 的落点留白 */
-.md-code-view .md-src-heading {
-  scroll-margin-top: 16px;
-}
-
-/* =========================================================
-   编辑模式(代码视图):透明 textarea 与高亮层网格叠放。
-   textarea 必须与 .md-code-pre 的字体/行高/padding/折行完全
-   一致,文字才能与高亮背景逐像素对齐;文字透明只留光标。
-   ========================================================= */
-.md-code-editor {
-  display: grid;
-}
-.md-code-editor > * {
-  grid-area: 1 / 1;
-}
-.md-code-view .md-code-textarea {
-  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "Courier New", monospace;
-  font-size: 13.5px;
-  line-height: 1.65;
-  margin: 0;
-  padding: 20px 24px;
-  border: 0;
-  border-radius: 10px;
+.md-cm-host .cm-scroller::-webkit-scrollbar-corner,
+.md-cm-host .cm-scroller::-webkit-scrollbar-track {
   background: transparent;
-  color: transparent;
-  caret-color: #1f2328;
-  white-space: pre-wrap;
-  word-break: break-word;
-  overflow: hidden;
-  resize: none;
-  outline: none;
-  z-index: 1;
-  cursor: text;
 }
-.dark .md-code-view .md-code-textarea,
-[data-theme="dark"] .md-code-view .md-code-textarea {
-  caret-color: #e6e6e6;
+.md-code-crumb-hash {
+  font-family: "Cascadia Code", "Cascadia Mono", "JetBrains Mono", Consolas, "SF Mono", Menlo, "Droid Sans Mono", "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", monospace;
+  color: #0550ae;
+  opacity: 0.8;
+}
+.dark .md-code-crumb-hash,
+[data-theme="dark"] .md-code-crumb-hash {
+  color: #58a6ff;
 }
 
 /* 编辑模式下的预览:给一块可编辑区域一个克制的视觉提示。 */

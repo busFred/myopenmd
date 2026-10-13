@@ -42,5 +42,7 @@
   "shell.author": "作者:木流",
   "shell.noHeadings": "見出しなし",
   "shell.editModeOn": "編集モードに入りました",
-  "shell.editModeOff": "編集モードを終了しました"
+  "shell.editModeOff": "編集モードを終了しました",
+  "shell.lnCol": "{{line}} 行、{{col}} 列",
+  "shell.selected": "({{count}} 個選択)"
 }

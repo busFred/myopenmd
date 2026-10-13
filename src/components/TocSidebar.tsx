@@ -1,7 +1,7 @@
 import { useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Box, Text, VStack } from "@chakra-ui/react";
-import { setActiveHeading, useToc } from "../stores/toc";
+import { navigateToHeading, useToc } from "../stores/toc";
 import { FloatingScrollbar } from "./FloatingScrollbar";
 
 /**
@@ -39,11 +39,7 @@ export function TocPanel() {
             whiteSpace="nowrap"
             _hover={{ bg: "bg.subtle" }}
             onClick={() => {
-              setActiveHeading(entry.id);
-              document.getElementById(entry.id)?.scrollIntoView({
-                behavior: "smooth",
-                block: "start",
-              });
+              navigateToHeading(entry.id);
             }}
             title={entry.text}
           >

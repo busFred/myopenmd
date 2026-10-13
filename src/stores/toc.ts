@@ -40,6 +40,19 @@ export function extractToc(container: HTMLElement): TocEntry[] {
 
 let observerPaused = false;
 
+/** 代码视图注册的跳转器:编辑器只渲染可见行,标题元素不一定在 DOM 里。 */
+let tocNavigator: ((id: string) => boolean) | null = null;
+export function setTocNavigator(fn: ((id: string) => boolean) | null): void {
+  tocNavigator = fn;
+}
+
+/** 目录点击跳转:优先交给注册的跳转器,否则滚动到同 id 元素。 */
+export function navigateToHeading(id: string): void {
+  setActiveHeading(id);
+  if (tocNavigator?.(id)) return;
+  document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 /** Navigate via TOC click: pause the observer so the smooth scroll doesn't
  *  fight it, then resume once the scroll has settled. */
 export function setActiveHeading(id: string): void {
