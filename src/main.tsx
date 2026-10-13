@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { ChakraProvider } from "@chakra-ui/react";
 import { ThemeProvider } from "next-themes";
 import { system } from "./theme/theme";
+import { THEMES } from "./utils/themeVariant";
 import App from "./App";
 import "./i18n";
 import LanguageSync from "./components/LanguageSync";
@@ -17,7 +18,7 @@ import "./theme/shell.css";
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <ChakraProvider value={system}>
-      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem disableTransitionOnChange>
+      <ThemeProvider attribute="class" defaultTheme="dark" themes={THEMES} enableSystem disableTransitionOnChange>
         <LanguageSync />
         <App />
       </ThemeProvider>

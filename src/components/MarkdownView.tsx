@@ -22,6 +22,7 @@ import {
 import i18n from "i18next";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
+import { themeVariant } from "../utils/themeVariant";
 import { convertFileSrc } from "@tauri-apps/api/core";
 import { openUrl, openPath } from "@tauri-apps/plugin-opener";
 import {
@@ -230,7 +231,8 @@ export function MarkdownView({ tab }: { tab: Tab }) {
   const { t } = useTranslation();
   const { fontSize, contentPadding, viewMode, setViewMode, editMode, codeMinimap, codeWrap } = useSettings();
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
+  const variant = themeVariant(resolvedTheme);
+  const isDark = variant === "dark";
   const { setEntries, setActive } = useToc();
   const setScrollInStore = useTabs((s) => s.setScroll);
   const updateDraft = useTabs((s) => s.updateDraft);
@@ -1368,7 +1370,7 @@ export function MarkdownView({ tab }: { tab: Tab }) {
               docKey={tab.id}
               value={codeSource}
               editable={editing}
-              isDark={isDark}
+              variant={variant}
               fontSize={Math.round(fontSize * 0.8 * 2) / 2}
               minimap={codeMinimap}
               wrap={codeWrap}

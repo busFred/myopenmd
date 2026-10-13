@@ -3,6 +3,7 @@ import { Box, HStack, IconButton, Text } from "@chakra-ui/react";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
+import { isDarkTheme } from "../utils/themeVariant";
 import { dirnameOf, renderFull, stripFrontmatter } from "../renderer/pipeline";
 import { renderRichBlocks } from "../renderer/richBlocks";
 import { splitSlides } from "../renderer/slides";
@@ -19,7 +20,7 @@ export function PresentationMode({
 }) {
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
-  const dark = resolvedTheme !== "light";
+  const dark = isDarkTheme(resolvedTheme);
   const slides = useMemo(
     () => splitSlides(stripFrontmatter(content)).map((slide) => renderFull(slide, dirnameOf(path)).html),
     [content, path],

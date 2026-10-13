@@ -19,6 +19,7 @@
   "settings.appearance.theme": "主题",
   "settings.appearance.themeLight": "亮色",
   "settings.appearance.themeDark": "暗色",
+  "settings.appearance.themeGreyout": "灰调",
   "settings.appearance.themeSystem": "跟随系统",
   "settings.appearance.fontSize": "正文字号 (13-28)",
   "settings.appearance.fontSizeDecrease": "减小字号",

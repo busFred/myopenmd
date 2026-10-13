@@ -189,6 +189,7 @@ export function TabBar() {
   return (
     <Box
       as="nav"
+      className="app-tabbar"
       display="flex"
       alignItems="stretch"
       flexShrink={0}

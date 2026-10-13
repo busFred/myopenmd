@@ -31,6 +31,7 @@ import type { MarkdownConfig } from "@lezer/markdown";
 import { indentationMarkers } from "@replit/codemirror-indentation-markers";
 import { showMinimap } from "@replit/codemirror-minimap";
 import { useEditorStatus } from "../stores/editorStatus";
+import type { ThemeVariant } from "../utils/themeVariant";
 
 /** 外部写入(磁盘重载等)的事务:不回调 onChange、不进撤销栈。 */
 const External = Annotation.define<boolean>();
@@ -113,10 +114,8 @@ interface Palette {
   };
 }
 
-type ThemeVariant = "light" | "dark";
-const variantOf = (dark: boolean): ThemeVariant => (dark ? "dark" : "light");
-
-// GitHub 亮/暗配色,与 md.css 预览里的代码块一致。
+// 亮/暗:GitHub 配色,与 md.css 预览里的代码块一致。
+// 灰调:VS Code「MyGreyout」= Light+ 语法配色 + 灰色编辑器底色(背景由外壳提供)。
 const PALETTES: Record<ThemeVariant, Palette> = {
   dark: {
     ui: {
@@ -148,6 +147,21 @@ const PALETTES: Record<ThemeVariant, Palette> = {
       prop: "#0550ae", tag: "#116329", attr: "#0550ae", vari: "#1f2328",
     },
   },
+  greyout: {
+    ui: {
+      fg: "#000000", gutter: "#237893", gutterActive: "#0b216f", active: "transparent",
+      activeBorder: "#d3d8da", sel: "#add6ff", selBlur: "#e5ebf1", caret: "#000000",
+      bracket: "rgba(0,100,0,0.1)", bracketBorder: "#b9b9b9", find: "rgba(234,92,0,0.33)", findCur: "#a8ac94",
+      findCurFg: "#000", fold: "#d3d8da", minimapBorder: "#d6dbdd", minimapOverlay: "rgba(0,0,0,0.08)",
+      guide: "#d3d3d3", guideActive: "#939393",
+    },
+    syn: {
+      h: "#800000", mark: "#0451a5", strong: "#000080", link: "#a31515", url: "#0451a5", code: "#800000",
+      codeBg: "transparent", bullet: "#0451a5", quote: "#0451a5", lang: "#800000", meta: "#0451a5",
+      kw: "#0000ff", ctl: "#af00db", str: "#a31515", num: "#098658", com: "#008000", fn: "#795e26", type: "#267f99",
+      prop: "#001080", tag: "#800000", attr: "#e50000", vari: "#001080",
+    },
+  },
 };
 
 function highlightStyle(variant: ThemeVariant): HighlightStyle {
@@ -162,7 +176,7 @@ function highlightStyle(variant: ThemeVariant): HighlightStyle {
     { tag: t.url, color: c.url, textDecoration: "underline", textUnderlineOffset: "2px" },
     { tag: t.monospace, color: c.code, backgroundColor: c.codeBg, borderRadius: "3px" },
     { tag: t.atom, color: c.bullet, fontWeight: "600" },
-    { tag: t.quote, color: c.quote, fontStyle: "italic" },
+    { tag: t.quote, color: c.quote, fontStyle: variant === "greyout" ? "normal" : "italic" },
     { tag: t.labelName, color: c.lang },
     { tag: t.contentSeparator, color: c.mark },
     { tag: t.meta, color: c.meta },
@@ -171,14 +185,14 @@ function highlightStyle(variant: ThemeVariant): HighlightStyle {
     { tag: t.controlKeyword, color: c.ctl },
     { tag: [t.string, t.special(t.string), t.regexp, t.character], color: c.str },
     { tag: [t.number, t.bool, t.null], color: c.num },
-    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: c.com, fontStyle: "italic" },
+    { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: c.com, fontStyle: variant === "greyout" ? "normal" : "italic" },
     { tag: [t.function(t.variableName), t.function(t.propertyName), t.macroName], color: c.fn },
     { tag: [t.typeName, t.className, t.namespace], color: c.type },
     { tag: [t.propertyName, t.definition(t.propertyName)], color: c.prop },
     { tag: [t.variableName, t.definition(t.variableName)], color: c.vari },
     { tag: [t.tagName, t.angleBracket], color: c.tag },
     { tag: t.attributeName, color: c.attr },
-    { tag: t.attributeValue, color: c.str },
+    { tag: t.attributeValue, color: variant === "greyout" ? "#0000ff" : c.str },
     { tag: t.invalid, color: "#f85149" },
   ]);
 }
@@ -186,11 +200,13 @@ function highlightStyle(variant: ThemeVariant): HighlightStyle {
 function editorTheme(variant: ThemeVariant, fontSize: number): Extension {
   const c = PALETTES[variant].ui;
   const dark = variant === "dark";
+  // 灰调沿用 VS Code 的行高比例(14px → 19px)
+  const lineHeight = variant === "greyout" ? "1.36" : "1.6";
   return EditorView.theme(
     {
       "&": { height: "100%", fontSize: `${fontSize}px`, color: c.fg, backgroundColor: "transparent" },
       "&.cm-focused": { outline: "none" },
-      ".cm-scroller": { fontFamily: MONO, lineHeight: "1.6", overflow: "auto" },
+      ".cm-scroller": { fontFamily: MONO, lineHeight, overflow: "auto" },
       // 末行之后留出半屏空白(VS Code 的 scrollBeyondLastLine)
       ".cm-content": { padding: "10px 0 45vh", caretColor: c.caret },
       ".cm-line": { padding: "0 24px 0 4px" },
@@ -246,7 +262,7 @@ export interface CodeEditorProps {
   docKey: string;
   value: string;
   editable: boolean;
-  isDark: boolean;
+  variant: ThemeVariant;
   fontSize: number;
   minimap: boolean;
   wrap: boolean;
@@ -331,12 +347,12 @@ export function CodeEditor(props: CodeEditorProps) {
         rectangularSelection(),
         crosshairCursor(),
         highlightActiveLine(),
-        c.guides.of(guidesExt(variantOf(p.isDark))),
+        c.guides.of(guidesExt(p.variant)),
         markdown({ base: markdownLanguage, codeLanguages: languages, extensions: [frontmatter, markTags] }),
         keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, indentWithTab]),
         findField,
-        c.theme.of(editorTheme(variantOf(p.isDark), p.fontSize)),
-        c.highlight.of(syntaxHighlighting(highlightStyle(variantOf(p.isDark)))),
+        c.theme.of(editorTheme(p.variant, p.fontSize)),
+        c.highlight.of(syntaxHighlighting(highlightStyle(p.variant))),
         c.readOnly.of(EditorState.readOnly.of(!p.editable)),
         c.minimap.of(minimapExt(p.minimap)),
         c.wrap.of(p.wrap ? EditorView.lineWrapping : []),
@@ -389,12 +405,12 @@ export function CodeEditor(props: CodeEditorProps) {
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: [
-        comps.current.theme.reconfigure(editorTheme(variantOf(props.isDark), props.fontSize)),
-        comps.current.highlight.reconfigure(syntaxHighlighting(highlightStyle(variantOf(props.isDark)))),
-        comps.current.guides.reconfigure(guidesExt(variantOf(props.isDark))),
+        comps.current.theme.reconfigure(editorTheme(props.variant, props.fontSize)),
+        comps.current.highlight.reconfigure(syntaxHighlighting(highlightStyle(props.variant))),
+        comps.current.guides.reconfigure(guidesExt(props.variant)),
       ],
     });
-  }, [props.isDark, props.fontSize]);
+  }, [props.variant, props.fontSize]);
   useEffect(() => {
     viewRef.current?.dispatch({
       effects: comps.current.readOnly.reconfigure(EditorState.readOnly.of(!props.editable)),

@@ -19,6 +19,7 @@
   "settings.appearance.theme": "テーマ",
   "settings.appearance.themeLight": "ライト",
   "settings.appearance.themeDark": "ダーク",
+  "settings.appearance.themeGreyout": "グレー",
   "settings.appearance.themeSystem": "システムに従う",
   "settings.appearance.fontSize": "本文の文字サイズ (13-28)",
   "settings.appearance.fontSizeDecrease": "文字サイズを縮小",

@@ -3,6 +3,7 @@ import { Box, Button, Flex, HStack, IconButton, Text, VStack } from "@chakra-ui/
 import { FileText, FolderOpen, FolderTree, Settings, X } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { useTheme } from "next-themes";
+import { isDarkTheme } from "../utils/themeVariant";
 import { useTabs } from "../stores/tabs";
 import { useRecent, type RecentFile } from "../stores/recent";
 import { useWorkspace } from "../stores/workspace";
@@ -39,7 +40,7 @@ export function EmptyState() {
   // 设了自定义背景图时首页让出底色,别把底层模糊图盖住。
   const backgroundImage = useSettings((s) => s.backgroundImage);
   // next-themes 首帧 resolvedTheme 为 undefined,默认按暗色处理。
-  const isDark = resolvedTheme !== "light";
+  const isDark = isDarkTheme(resolvedTheme);
 
   /** 今天显示 HH:mm,今年显示 M月d日,更早显示 年/M/d。 */
   const formatTs = (ts: number): string => {

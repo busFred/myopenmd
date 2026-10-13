@@ -1123,3 +1123,50 @@
   box-shadow: 0 0 0 1px var(--md-edit-ring, rgba(127, 127, 127, 0.25));
   border-radius: 10px;
 }
+
+/* =========================================================
+   灰调主题(MyGreyout):预览正文与代码块用 Light+ 配色。
+   ========================================================= */
+.greyout .md-body {
+  color: #1f2328;
+}
+.greyout .md-body :not(pre) > code {
+  background: #d9dfe2;
+  color: #800000;
+}
+.greyout .md-body pre {
+  background: #dde3e6;
+  border-color: #c9cfd2;
+}
+.greyout .md-body blockquote {
+  background: #e0e5e7;
+  border-left-color: #a9b2b6;
+}
+.greyout .md-body .hljs { color: #000000; }
+.greyout .md-body .hljs-keyword,
+.greyout .md-body .hljs-literal,
+.greyout .md-body .hljs-type,
+.greyout .md-body .hljs-meta .hljs-keyword,
+.greyout .md-body .hljs-variable.language_ { color: #0000ff; }
+.greyout .md-body .hljs-title,
+.greyout .md-body .hljs-title.function_ { color: #795e26; }
+.greyout .md-body .hljs-title.class_,
+.greyout .md-body .hljs-title.class_.inherited__,
+.greyout .md-body .hljs-built_in { color: #267f99; }
+.greyout .md-body .hljs-string,
+.greyout .md-body .hljs-meta .hljs-string { color: #a31515; }
+.greyout .md-body .hljs-number { color: #098658; }
+.greyout .md-body .hljs-comment,
+.greyout .md-body .hljs-code { color: #008000; font-style: normal; }
+.greyout .md-body .hljs-name,
+.greyout .md-body .hljs-selector-tag,
+.greyout .md-body .hljs-section { color: #800000; }
+.greyout .md-body .hljs-attr,
+.greyout .md-body .hljs-attribute { color: #e50000; }
+.greyout .md-body .hljs-variable,
+.greyout .md-body .hljs-params,
+.greyout .md-body .hljs-property { color: #001080; }
+.greyout .md-body .hljs-regexp { color: #811f3f; }
+.greyout .md-body .hljs-bullet,
+.greyout .md-body .hljs-quote { color: #0451a5; }
+.greyout .md-code-crumb-hash { color: #800000; }

@@ -18,3 +18,77 @@ html.overlay-open .app-shell {
     transition: none;
   }
 }
+
+/* =========================================================
+   灰调主题(VS Code「MyGreyout」):亮色系,只覆盖 Chakra 的语义色变量,
+   再给外壳各区域上色。顶栏另套局部暗色 token(TitleBar 的 className="dark")。
+   ========================================================= */
+html.greyout {
+  color-scheme: light;
+  --chakra-colors-bg: #e8ebec;          /* editor.background */
+  --chakra-colors-bg-canvas: #e8ebec;
+  --chakra-colors-bg-subtle: #dde3e6;   /* tab.inactiveBackground */
+  --chakra-colors-bg-muted: #d3d8da;
+  --chakra-colors-bg-emphasized: #c4cacd;
+  --chakra-colors-bg-panel: #eef1f2;
+  --chakra-colors-border: #c8cdd0;
+  --chakra-colors-border-subtle: #d3d8da;
+  --chakra-colors-border-muted: #d3d8da;
+  --chakra-colors-border-emphasized: #b4bbbf;
+  --chakra-colors-fg: #1f2328;
+  --chakra-colors-fg-muted: #4f5a60;
+  --chakra-colors-fg-subtle: #7a858a;
+  /* 幽灵/浅色按钮的悬停与选中底色(colorPalette=gray 在 html 上解析) */
+  --chakra-colors-gray-subtle: #d6dbde;
+  --chakra-colors-gray-muted: #c9d0d3;
+  --chakra-colors-gray-emphasized: #bcc4c8;
+}
+
+/* 页面底色(Chakra 没有 bg.canvas 这个 token,亮/暗主题靠 WebView 默认底色;灰调需显式给出) */
+html.greyout,
+html.greyout body {
+  background: #e8ebec;
+}
+
+/* 顶栏:activityBar.background */
+html.greyout .app-titlebar {
+  background: #555555;
+  --chakra-colors-fg: #f2f2f2;
+  --chakra-colors-fg-muted: #d0d0d0;
+  --chakra-colors-gray-subtle: rgba(255, 255, 255, 0.14);
+  --chakra-colors-gray-muted: rgba(255, 255, 255, 0.2);
+  --chakra-colors-gray-emphasized: rgba(255, 255, 255, 0.28);
+  --chakra-colors-bg-subtle: rgba(255, 255, 255, 0.12);
+  --chakra-colors-bg-muted: rgba(255, 255, 255, 0.16);
+  --chakra-colors-bg-panel: #3f3f3f;
+}
+
+/* 标签栏:tab.inactiveBackground / tab.activeBackground */
+html.greyout .app-tabbar {
+  background: #dde3e6;
+  border-bottom: 1px solid #c8cdd0;
+  --chakra-colors-bg-subtle: #dfeff5;
+}
+
+/* 侧栏:sideBar.background / sideBarTitle.background */
+html.greyout .app-sidebar {
+  background: #dbdbdb;
+  color: #252525;
+  border-right: 1px solid #c8cdd0;
+  --chakra-colors-bg-subtle: #cdd2d4;
+  --chakra-colors-bg-muted: #c4cacd;
+}
+html.greyout .app-sidebar-head {
+  background: #cfcfcf;
+  --chakra-colors-bg-subtle: #e9ecee;
+}
+
+/* 状态栏:Light+ 默认 statusBar.background */
+html.greyout .app-statusbar {
+  background: #007acc;
+  border-color: #007acc;
+}
+html.greyout .app-statusbar,
+html.greyout .app-statusbar * {
+  color: #ffffff !important;
+}

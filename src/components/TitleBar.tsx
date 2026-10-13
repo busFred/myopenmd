@@ -34,6 +34,7 @@ import { openFolderDialog, openFileDialog } from "../tauri/api";
 import { openStandaloneFiles } from "../lib/openStandaloneFiles";
 import { isDirty, useTabs } from "../stores/tabs";
 import { withViewTransition } from "../utils/viewTransition";
+import { isDarkTheme, lastLightVariant, rememberLightVariant, themeVariant } from "../utils/themeVariant";
 import { IS_MACOS } from "../utils/platform";
 import { SettingsModal } from "./SettingsModal";
 import { WindowControls } from "./WindowControls";
@@ -41,10 +42,12 @@ import { WindowControls } from "./WindowControls";
 function ThemeToggle() {
   const { t } = useTranslation();
   const { resolvedTheme, setTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
+  const isDark = isDarkTheme(resolvedTheme);
   // 主题切换用 View Transition 交叉淡入,避免全文档逐元素颜色过渡卡顿。
+  // 从暗色切回时回到上次使用的亮色系主题(亮色或灰调)。
   const toggle = () => {
-    withViewTransition(() => setTheme(isDark ? "light" : "dark"));
+    if (!isDark) rememberLightVariant(resolvedTheme);
+    withViewTransition(() => setTheme(isDark ? lastLightVariant() : "dark"));
   };
   return (
     <IconButton
@@ -80,7 +83,9 @@ export function TitleBar({ onOpenError }: { onOpenError?: (msg: string) => void 
   const canEdit = !!activeTab?.path;
   const dirty = activeTab ? isDirty(activeTab) : false;
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
+  const variant = themeVariant(resolvedTheme);
+  // 灰调主题的顶栏是深灰色(对应 VS Code 的活动栏),Logo 用白色版本。
+  const isDark = variant !== "light";
 
   // 字号输入框的本地草稿:回车/失焦时提交,外部变更(按钮/快捷键)时同步。
   const [sizeDraft, setSizeDraft] = useState(String(fontSize));
@@ -217,6 +222,9 @@ export function TitleBar({ onOpenError }: { onOpenError?: (msg: string) => void 
   return (
     <Box
       as="header"
+      // 灰调主题:顶栏局部套用暗色 token(className="dark"),并重新声明 colorPalette 让按钮跟随。
+      className={variant === "greyout" ? "app-titlebar dark" : "app-titlebar"}
+      colorPalette="gray"
       h="46px"
       // 右侧不留内边距:窗口按钮要贴到右上角,留白会让角落点不到关闭。
       // macOS 的 titleBarStyle:"Overlay" 会把红绿灯按钮叠在内容左上角,

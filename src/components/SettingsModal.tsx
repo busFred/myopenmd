@@ -17,6 +17,7 @@ import {
 import { getVersion } from "@tauri-apps/api/app";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { useTheme } from "next-themes";
+import { isDarkTheme, rememberLightVariant } from "../utils/themeVariant";
 import { useTranslation } from "react-i18next";
 import { FaQq } from "react-icons/fa6";
 import { RiBilibiliFill, RiTiktokFill } from "react-icons/ri";
@@ -187,6 +188,7 @@ function AppearanceSection() {
             [
               { v: "light", label: t("settings.appearance.themeLight") },
               { v: "dark", label: t("settings.appearance.themeDark") },
+              { v: "greyout", label: t("settings.appearance.themeGreyout") },
               { v: "system", label: t("settings.appearance.themeSystem") },
             ] as const
           ).map((opt) => (
@@ -194,7 +196,10 @@ function AppearanceSection() {
               key={opt.v}
               size="xs"
               variant={theme === opt.v ? "subtle" : "ghost"}
-              onClick={() => setTheme(opt.v)}
+              onClick={() => {
+                rememberLightVariant(opt.v);
+                setTheme(opt.v);
+              }}
             >
               {opt.label}
             </Button>
@@ -336,7 +341,7 @@ function SponsorSection() {
 function AboutSection() {
   const { t } = useTranslation();
   const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme !== "light";
+  const isDark = isDarkTheme(resolvedTheme);
   const [version, setVersion] = useState("1.0.4");
   const { lastCheck, tag: latestTag, check, phase, progress, errorMsg, startDownload, install } =
     useUpdate();

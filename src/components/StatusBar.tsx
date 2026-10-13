@@ -25,6 +25,7 @@ export function StatusBar() {
   return (
     <HStack
       as="footer"
+      className="app-statusbar"
       h="26px"
       px={3}
       gap={4}

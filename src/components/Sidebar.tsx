@@ -65,6 +65,7 @@ export function Sidebar({ open }: { open: boolean }) {
   return (
     // 常驻挂载,通过宽度过渡实现展开/收起动画。
     <Box
+      className="app-sidebar"
       w={open ? "250px" : "0px"}
       flexShrink={0}
       position="relative"
@@ -73,7 +74,7 @@ export function Sidebar({ open }: { open: boolean }) {
       _motionReduce={{ transition: "none" }}
     >
       <Flex w="250px" h="100%" direction="column">
-        <Flex gap={1} px={2} pt={2} pb={1} flexShrink={0}>
+        <Flex className="app-sidebar-head" gap={1} px={2} pt={2} pb={1} flexShrink={0}>
           {tabs.map((tab) => (
             <TabButton
               key={tab.key}

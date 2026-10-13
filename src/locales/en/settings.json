@@ -19,6 +19,7 @@
   "settings.appearance.theme": "Theme",
   "settings.appearance.themeLight": "Light",
   "settings.appearance.themeDark": "Dark",
+  "settings.appearance.themeGreyout": "Greyout",
   "settings.appearance.themeSystem": "System",
   "settings.appearance.fontSize": "Body font size (13-28)",
   "settings.appearance.fontSizeDecrease": "Decrease font size",
